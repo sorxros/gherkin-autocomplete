@@ -51,42 +51,18 @@ export class Global {
                 }
             }
             featuresPath += "**/*.feature";
-            let files = vscode.workspace.findFiles(featuresPath, "", 1000);
-            files.then((values) => {
-                for (let value of values) {
-                    this.addFileToCache(value);
-                }
-                vscode.window.setStatusBarMessage("Features' cache is built.", 3000);
-            }, (reason) => {
-                console.log(reason);
-            });
+            this.findFilesForUpdate(featuresPath, "Features' cache is built.");
         }
 
-        let pathsLibrarys: Array<string> =
+        let pathsLibrarys: string[] =
             vscode.workspace.getConfiguration("gherkin-autocomplete")
-                .get<Array<string>>("featureLibraries", []);
-        for (let i = 0; i < pathsLibrarys.length; ++i) {
-            let library = pathsLibrarys[i];
+                .get<string[]>("featureLibraries", []);
+        for (let library of pathsLibrarys) {
             if (!(library.endsWith("/") || library.endsWith("\\"))) {
                 library += "/";
             }
             library += "**/*.feature";
-            let globOptions: glob.IOptions = {};
-            globOptions.dot = true;
-            globOptions.cwd = vscode.workspace.rootPath;
-            // glob >=7.0.0 contains this property
-            // tslint:disable-next-line:no-string-literal
-            globOptions["absolute"] = true;
-            glob(library, globOptions, (err, files) => {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-                    for (let file of files) {
-                        this.addFileToCache(vscode.Uri.file(file));
-                    }
-                    vscode.window.setStatusBarMessage("Feature libraries cache is built.", 3000);
-                });
+            this.findFilesForUpdate(library, "Feature libraries cache is built.");
         }
     };
 
@@ -114,8 +90,8 @@ export class Global {
             return new Array();
         }
         let words = word.split(" ");
-        let sb: Array<String> = new Array();
-        words.forEach(element => {
+        let sb: String[] = new Array();
+        words.forEach( (element) => {
             sb.push("(?=.*");
             sb.push(element);
             sb.push(")");
@@ -137,6 +113,26 @@ export class Global {
         }
 
         return this.languages.findOne({ name: filename });
+    }
+
+    private findFilesForUpdate(library: string, successMessage: string): void {
+        let globOptions: glob.IOptions = {};
+        globOptions.dot = true;
+        globOptions.cwd = vscode.workspace.rootPath;
+        globOptions.nocase = true;
+        // glob >=7.0.0 contains this property
+        // tslint:disable-next-line:no-string-literal
+        globOptions["absolute"] = true;
+        glob(library, globOptions, (err, files) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            for (let file of files) {
+                this.addFileToCache(vscode.Uri.file(file));
+            }
+            vscode.window.setStatusBarMessage(successMessage, 3000);
+        });
     }
 
     private fullNameRecursor(word: string, document: vscode.TextDocument, range: vscode.Range, left: boolean) {
@@ -189,8 +185,7 @@ export class Global {
         let source = fs.readFileSync(fullpath, "utf-8");
         let entries = this.parse(source, fullpath).find();
         let count = 0;
-        for (let y = 0; y < entries.length; ++y) {
-            let item = entries[y];
+        for (let item of entries) {
             let newItem: IMethodValue = {
                 description: item.description,
                 endline: item.endline,
@@ -232,12 +227,10 @@ export class Global {
         }
 
         const children = gherkinDocument.feature.children;
-        for (let index = 0; index < children.length; index++) {
-            const child = children[index];
+        for (let child of children) {
             const steps = child.steps;
 
-            for (let indexStep = 0; indexStep < steps.length; indexStep++) {
-                const step = steps[indexStep];
+            for (let step of steps) {
                 let text: string = step.text;
                 let methRow: IMethodValue = {
                     description: step.text,
